@@ -1,0 +1,284 @@
+# CloudMeet Lite - CI/CD Pipeline
+# GitHub Actions workflow для сборки, тестирования и деплоя
+
+name: CloudMeet CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  # Названия образов Docker
+  AUTH_SERVICE_IMAGE: cloudmeet-auth-service
+  CONFERENCE_SERVICE_IMAGE: cloudmeet-conference-service
+  GATEWAY_IMAGE: cloudmeet-gateway
+  FRONTEND_IMAGE: cloudmeet-frontend
+
+jobs:
+  # ============================================
+  # JOB 1: Сборка и тестирование
+  # ============================================
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          echo "JWT_SECRET_KEY=test-secret-key-for-ci" >> .env
+      
+      - name: Make init script executable
+        run: chmod +x ./scripts/init-multiple-databases.sh
+      
+      - name: Build Docker images
+        run: |
+          docker-compose build --parallel
+      
+      - name: Start services
+        run: |
+          docker-compose up -d
+          echo "Waiting for services to start..."
+          sleep 30
+      
+      - name: Check running containers
+        run: |
+          docker-compose ps
+          docker ps
+      
+      - name: Health check - Auth Service
+        run: |
+          for i in {1..10}; do
+            if curl -f http://localhost:8001/health; then
+              echo "Auth Service is healthy"
+              break
+            fi
+            echo "Waiting for Auth Service... ($i/10)"
+            sleep 5
+          done
+      
+      - name: Health check - Conference Service
+        run: |
+          for i in {1..10}; do
+            if curl -f http://localhost:8002/health; then
+              echo "Conference Service is healthy"
+              break
+            fi
+            echo "Waiting for Conference Service... ($i/10)"
+            sleep 5
+          done
+      
+      - name: Health check - Gateway
+        run: |
+          for i in {1..10}; do
+            if curl -f http://localhost:8000/health; then
+              echo "Gateway is healthy"
+              break
+            fi
+            echo "Waiting for Gateway... ($i/10)"
+            sleep 5
+          done
+      
+      - name: Health check - Frontend
+        run: |
+          for i in {1..10}; do
+            if curl -f http://localhost:80/health; then
+              echo "Frontend is healthy"
+              break
+            fi
+            echo "Waiting for Frontend... ($i/10)"
+            sleep 5
+          done
+      
+      - name: Smoke test - API endpoints
+        run: |
+          # Проверка корневого endpoint Gateway
+          curl -f http://localhost:8000/ || exit 1
+          echo "Gateway root endpoint OK"
+          
+          # Проверка регистрации пользователя
+          REGISTER_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"email": "test@example.com", "display_name": "Test User", "password": "testpass123"}')
+          echo "Register response: $REGISTER_RESPONSE"
+          
+          # Проверка логина
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email": "test@example.com", "password": "testpass123"}')
+          echo "Login response: $LOGIN_RESPONSE"
+          
+          # Извлечение токена
+          TOKEN=$(echo $LOGIN_RESPONSE | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to get token"
+            exit 1
+          fi
+          echo "Token obtained successfully"
+          
+          # Проверка получения текущего пользователя
+          curl -f http://localhost:8000/api/auth/me \
+            -H "Authorization: Bearer $TOKEN" || exit 1
+          echo "Get current user OK"
+          
+          # Проверка создания комнаты
+          ROOM_RESPONSE=$(curl -s -X POST http://localhost:8000/api/rooms \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"name": "Test Room"}')
+          echo "Create room response: $ROOM_RESPONSE"
+          
+          # Проверка списка комнат
+          curl -f http://localhost:8000/api/rooms \
+            -H "Authorization: Bearer $TOKEN" || exit 1
+          echo "Get rooms OK"
+          
+          echo "All smoke tests passed!"
+      
+      - name: View logs on failure
+        if: failure()
+        run: |
+          docker-compose logs auth-service
+          docker-compose logs conference-service
+          docker-compose logs gateway
+          docker-compose logs frontend
+      
+      - name: Stop and cleanup
+        if: always()
+        run: |
+          docker-compose down --volumes --remove-orphans
+
+  # ============================================
+  # JOB 2: Публикация образов в Docker Hub
+  # ============================================
+  push-images:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push Auth Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/auth-service
+          file: ./docker/auth-service/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.AUTH_SERVICE_IMAGE }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.AUTH_SERVICE_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push Conference Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/conference-service
+          file: ./docker/conference-service/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.CONFERENCE_SERVICE_IMAGE }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.CONFERENCE_SERVICE_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/gateway
+          file: ./docker/gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GATEWAY_IMAGE }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GATEWAY_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # JOB 3: Деплой в Docker Swarm (опционально)
+  # ============================================
+  deploy:
+    name: Deploy to Swarm
+    runs-on: ubuntu-latest
+    needs: push-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Деплой запускается только если настроен DEPLOY_HOST
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Check if deployment is configured
+        id: check-deploy
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "Deployment not configured (DEPLOY_HOST not set)"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Deploy to Docker Swarm
+        if: steps.check-deploy.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /opt/cloudmeet
+            
+            # Обновляем образы
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export IMAGE_TAG=${{ github.sha }}
+            export JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            
+            # Деплой stack'а
+            docker stack deploy -c stack-compose.yml cloudmeet --with-registry-auth
+            
+            # Проверка статуса сервисов
+            sleep 30
+            docker stack services cloudmeet
+      
+      - name: Skip deployment notice
+        if: steps.check-deploy.outputs.skip == 'true'
+        run: |
+          echo "::notice::Deployment skipped - DEPLOY_HOST secret not configured"
+          echo "To enable deployment, configure the following secrets:"
+          echo "  - DEPLOY_HOST: SSH host for deployment"
+          echo "  - DEPLOY_USER: SSH username"
+          echo "  - DEPLOY_KEY: SSH private key"

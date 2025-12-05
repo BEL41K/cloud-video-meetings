@@ -1,0 +1,162 @@
+# CloudMeet Lite - Docker Compose для локальной разработки
+# Версия файла конфигурации
+
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudmeet-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cloudmeet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudmeet_secret}
+      POSTGRES_MULTIPLE_DATABASES: cloudmeet_auth,cloudmeet_conference
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cloudmeet}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis для кэширования
+  redis:
+    image: redis:7-alpine
+    container_name: cloudmeet-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Auth Service - сервис аутентификации
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: ../../docker/auth-service/Dockerfile
+    container_name: cloudmeet-auth-service
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-cloudmeet}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cloudmeet_secret}
+      - POSTGRES_DB=cloudmeet_auth
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+    ports:
+      - "8001:8000"
+    networks:
+      - backend-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Conference Service - сервис конференций
+  conference-service:
+    build:
+      context: ./backend/conference-service
+      dockerfile: ../../docker/conference-service/Dockerfile
+    container_name: cloudmeet-conference-service
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-cloudmeet}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cloudmeet_secret}
+      - POSTGRES_DB=cloudmeet_conference
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - CACHE_TTL_SECONDS=300
+    ports:
+      - "8002:8000"
+    networks:
+      - backend-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Gateway - API шлюз
+  gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: ../../docker/gateway/Dockerfile
+    container_name: cloudmeet-gateway
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - CONFERENCE_SERVICE_URL=http://conference-service:8000
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+    ports:
+      - "8000:8000"
+    networks:
+      - backend-network
+    depends_on:
+      - auth-service
+      - conference-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Frontend - веб-интерфейс
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker/frontend/Dockerfile
+    container_name: cloudmeet-frontend
+    ports:
+      - "80:80"
+    networks:
+      - backend-network
+    depends_on:
+      - gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+# Именованные тома для постоянного хранения данных
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Сеть для взаимодействия сервисов
+networks:
+  backend-network:
+    driver: bridge

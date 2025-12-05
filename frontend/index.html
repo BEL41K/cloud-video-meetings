@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudMeet Lite - Вход</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/auth.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <h1>☁️ CloudMeet Lite</h1>
+                <p>Платформа для видеоконференций</p>
+            </div>
+            
+            <!-- Контейнер для алертов -->
+            <div id="alertContainer"></div>
+            
+            <!-- Табы -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="loginTab">Вход</button>
+                <button class="auth-tab" id="registerTab">Регистрация</button>
+            </div>
+            
+            <!-- Форма входа -->
+            <form class="auth-form active" id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" class="form-control" id="loginEmail" 
+                           placeholder="email@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <input type="password" class="form-control" id="loginPassword" 
+                           placeholder="Введите пароль" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Войти</button>
+            </form>
+            
+            <!-- Форма регистрации -->
+            <form class="auth-form" id="registerForm">
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" class="form-control" id="registerEmail" 
+                           placeholder="email@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerName">Отображаемое имя</label>
+                    <input type="text" class="form-control" id="registerName" 
+                           placeholder="Иван Иванов" required minlength="2">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerPassword">Пароль</label>
+                    <input type="password" class="form-control" id="registerPassword" 
+                           placeholder="Минимум 6 символов" required minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Подтверждение пароля</label>
+                    <input type="password" class="form-control" id="registerConfirmPassword" 
+                           placeholder="Повторите пароль" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/auth.js"></script>
+</body>
+</html>

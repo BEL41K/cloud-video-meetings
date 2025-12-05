@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комнаты - CloudMeet Lite</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/rooms.css">
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/rooms.html" class="navbar-brand">☁️ CloudMeet Lite</a>
+            <div class="navbar-nav">
+                <div class="navbar-user">
+                    <span>👤 <span id="userName">Загрузка...</span></span>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="logoutBtn">Выйти</button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Основной контент -->
+    <div class="container">
+        <!-- Контейнер для алертов -->
+        <div id="alertContainer"></div>
+        
+        <!-- Заголовок и кнопка создания -->
+        <div class="rooms-header">
+            <h1 class="rooms-title">📹 Комнаты видеоконференций</h1>
+            <button class="btn btn-primary" id="createRoomBtn">
+                ➕ Создать комнату
+            </button>
+        </div>
+        
+        <!-- Список комнат -->
+        <div id="roomsList">
+            <div class="text-center" style="padding: 40px;">
+                <span class="spinner"></span>
+                <p>Загрузка комнат...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно создания комнаты -->
+    <div class="modal-overlay hidden" id="createRoomModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Создание новой комнаты</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            
+            <form id="createRoomForm">
+                <div class="form-group">
+                    <label for="roomName">Название комнаты</label>
+                    <input type="text" class="form-control" id="roomName" 
+                           placeholder="Например: Совещание команды" required maxlength="255">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Создать</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/rooms.js"></script>
+</body>
+</html>

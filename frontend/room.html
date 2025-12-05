@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комната - CloudMeet Lite</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/room.css">
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/rooms.html" class="navbar-brand">☁️ CloudMeet Lite</a>
+            <div class="navbar-nav">
+                <div class="navbar-user">
+                    <span>👤 <span id="userName">Загрузка...</span></span>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="logoutBtn">Выйти</button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Основной контент -->
+    <div class="room-container">
+        <!-- Основная область -->
+        <div class="room-main">
+            <div class="room-header">
+                <h2 id="roomName">Загрузка...</h2>
+                <div class="room-status">
+                    <span class="status-dot"></span>
+                    <span>В эфире</span>
+                </div>
+            </div>
+            
+            <!-- Область видео (заглушка) -->
+            <div class="video-area">
+                <div class="video-placeholder">
+                    <div class="video-placeholder-icon">📹</div>
+                    <h3>Видеоконференция</h3>
+                    <p>В данной демо-версии видеосвязь имитируется. Реальный видеопоток требует интеграции WebRTC.</p>
+                </div>
+            </div>
+            
+            <!-- Контролы -->
+            <div class="room-controls">
+                <button class="control-btn active" title="Микрофон включен">🎤</button>
+                <button class="control-btn active" title="Камера включена">📷</button>
+                <button class="control-btn default" title="Демонстрация экрана">🖥️</button>
+                <button class="control-btn leave" id="leaveRoomBtn">Покинуть</button>
+            </div>
+        </div>
+        
+        <!-- Боковая панель -->
+        <div class="room-sidebar">
+            <!-- Участники -->
+            <div class="participants-panel">
+                <div class="panel-header">
+                    <h4>👥 Участники</h4>
+                    <span class="participant-count" id="participantCount">0</span>
+                </div>
+                <div class="participants-list" id="participantsList">
+                    <p class="text-center" style="color: #6c757d;">Загрузка...</p>
+                </div>
+            </div>
+            
+            <!-- Чат -->
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <h4>💬 Чат</h4>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <p class="text-center" style="color: #6c757d; padding: 20px;">Загрузка сообщений...</p>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="messageInput" 
+                           placeholder="Введите сообщение..." 
+                           maxlength="2000">
+                    <button id="sendMessageBtn">Отправить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/room.js"></script>
+</body>
+</html>
