@@ -41,17 +41,17 @@ jobs:
       
       - name: Build Docker images
         run: |
-          docker-compose build --parallel
+          docker compose build --parallel
       
       - name: Start services
         run: |
-          docker-compose up -d
+          docker compose up -d
           echo "Waiting for services to start..."
           sleep 30
       
       - name: Check running containers
         run: |
-          docker-compose ps
+          docker compose ps
           docker ps
       
       - name: Health check - Auth Service
@@ -147,15 +147,15 @@ jobs:
       - name: View logs on failure
         if: failure()
         run: |
-          docker-compose logs auth-service
-          docker-compose logs conference-service
-          docker-compose logs gateway
-          docker-compose logs frontend
+          docker compose logs auth-service
+          docker compose logs conference-service
+          docker compose logs gateway
+          docker compose logs frontend
       
       - name: Stop and cleanup
         if: always()
         run: |
-          docker-compose down --volumes --remove-orphans
+          docker compose down --volumes --remove-orphans
 
   # ============================================
   # JOB 2: Публикация образов в Docker Hub

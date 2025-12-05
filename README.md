@@ -265,14 +265,14 @@ cp .env.example .env
 chmod +x scripts/init-multiple-databases.sh
 
 # Сборка и запуск всех сервисов
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 ### Шаг 4: Проверка работоспособности
 
 ```bash
 # Проверка статуса контейнеров
-docker-compose ps
+docker compose ps
 
 # Проверка health endpoints
 curl http://localhost:80/health      # Frontend
@@ -294,10 +294,10 @@ curl http://localhost:8002/health    # Conference Service
 ### Остановка проекта
 
 ```bash
-docker-compose down
+docker compose down
 
 # Полная очистка (включая данные)
-docker-compose down --volumes --remove-orphans
+docker compose down --volumes --remove-orphans
 ```
 
 ---
@@ -437,8 +437,8 @@ GitHub Actions автоматизирует сборку, тестировани
 ```bash
 # Имитация CI локально
 cp .env.example .env
-docker-compose build --parallel
-docker-compose up -d
+docker compose build --parallel
+docker compose up -d
 sleep 30
 
 # Smoke tests
@@ -447,7 +447,7 @@ curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "test@test.com", "display_name": "Test", "password": "testpass"}'
 
-docker-compose down --volumes
+docker compose down --volumes
 ```
 
 ---
